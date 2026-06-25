@@ -675,6 +675,7 @@
 
   <!-- ═══ TOOLBAR ═══ -->
   <div class="toolbar">
+    <button class="btn btn-primary" onclick="loadCurrentScores()">⚡ Load All Known Results</button>
     <button class="btn btn-danger" onclick="resetAll()">Reset All</button>
     <button class="btn btn-ghost" onclick="window.print()">Print / Export</button>
   </div>
@@ -872,13 +873,96 @@ const GROUPS = [
   },
 ];
 // FIXTURE_PAIRS no longer needed — fixtures are per-group with date/stadium
+// Official FIFA 2026 Round of 32 slot map (Match 73–88)
 const R32_SEEDS = [
-  ['1A','2C'],['1B','2A'],['1C','2B'],['1D','2F'],
-  ['1E','2D'],['1F','2E'],['1G','2I'],['1H','2J'],
-  ['1I','2G'],['1J','2H'],['1K','2L'],['1L','2K'],
-  ['3rd Best','3rd Best'],['3rd Best','3rd Best'],
-  ['TBD','TBD'],['TBD','TBD']
+  ['2A','2B'],           // M73: SoFi Stadium, Inglewood
+  ['1E','3A/B/C/D/F'],   // M74: Gillette Stadium, Foxborough
+  ['1F','2C'],           // M75: Estadio BBVA, Monterrey
+  ['1C','2F'],           // M76: NRG Stadium, Houston
+  ['1I','3C/D/F/G/H'],   // M77: MetLife Stadium, New Jersey
+  ['2E','2I'],           // M78: AT&T Stadium, Arlington
+  ['1A','3C/E/F/H/I'],   // M79: Estadio Azteca, Mexico City
+  ['1L','3E/H/I/J/K'],   // M80: Mercedes-Benz Stadium, Atlanta
+  ['1D','3B/E/F/I/J'],   // M81: Levi's Stadium, Santa Clara
+  ['1G','3A/E/H/I/J'],   // M82: Lumen Field, Seattle
+  ['2K','2L'],           // M83: BMO Field, Toronto
+  ['1H','2J'],           // M84: SoFi Stadium, Inglewood
+  ['1B','3E/F/G/I/J'],   // M85: BC Place, Vancouver
+  ['1J','2H'],           // M86: Hard Rock Stadium, Miami
+  ['1K','3D/E/I/J/L'],   // M87: Arrowhead Stadium, Kansas City
+  ['2D','2G'],           // M88: AT&T Stadium, Arlington
 ];
+
+// ── REAL RESULTS: MD1–MD3 (Groups A/B/C complete; D/E/F MD3 in progress 25 Jun)
+// Keys: "GroupID_FixtureIndex_h/a"  (h = home team goals, a = away team goals)
+const INITIAL_SCORES = {
+  // Group A – Mexico(0) SA(1) South Korea(2) Czechia(3)
+  'A_0_h':2,'A_0_a':0,  // Mexico 2-0 South Africa        MD1
+  'A_1_h':2,'A_1_a':1,  // South Korea 2-1 Czechia         MD1
+  'A_2_h':1,'A_2_a':1,  // Czechia 1-1 South Africa        MD2
+  'A_3_h':1,'A_3_a':0,  // Mexico 1-0 South Korea          MD2
+  'A_4_h':0,'A_4_a':3,  // Czechia 0-3 Mexico              MD3 ✓
+  'A_5_h':1,'A_5_a':0,  // South Africa 1-0 South Korea    MD3 ✓
+  // Group B – Canada(0) Bosnia(1) Qatar(2) Switzerland(3)
+  'B_0_h':1,'B_0_a':1,  // Canada 1-1 Bosnia & Herz.      MD1
+  'B_1_h':1,'B_1_a':1,  // Qatar 1-1 Switzerland           MD1
+  'B_2_h':4,'B_2_a':1,  // Switzerland 4-1 Bosnia & Herz. MD2
+  'B_3_h':6,'B_3_a':0,  // Canada 6-0 Qatar                MD2
+  'B_4_h':2,'B_4_a':1,  // Switzerland 2-1 Canada          MD3 ✓
+  'B_5_h':3,'B_5_a':1,  // Bosnia & Herz. 3-1 Qatar        MD3 ✓
+  // Group C – Brazil(0) Morocco(1) Haiti(2) Scotland(3)
+  'C_0_h':1,'C_0_a':1,  // Brazil 1-1 Morocco              MD1
+  'C_1_h':0,'C_1_a':1,  // Haiti 0-1 Scotland              MD1
+  'C_2_h':0,'C_2_a':1,  // Scotland 0-1 Morocco            MD2
+  'C_3_h':3,'C_3_a':0,  // Brazil 3-0 Haiti                MD2
+  'C_4_h':0,'C_4_a':3,  // Scotland 0-3 Brazil             MD3 ✓
+  'C_5_h':4,'C_5_a':2,  // Morocco 4-2 Haiti               MD3 ✓
+  // Group D – USA(0) Paraguay(1) Australia(2) Türkiye(3)
+  'D_0_h':4,'D_0_a':1,  // USA 4-1 Paraguay               MD1
+  'D_1_h':2,'D_1_a':0,  // Australia 2-0 Türkiye           MD1
+  'D_2_h':2,'D_2_a':0,  // USA 2-0 Australia               MD2
+  'D_3_h':0,'D_3_a':1,  // Türkiye 0-1 Paraguay            MD2
+  // Group E – Germany(0) Curaçao(1) Ivory Coast(2) Ecuador(3)
+  'E_0_h':7,'E_0_a':1,  // Germany 7-1 Curaçao
+  'E_1_h':1,'E_1_a':0,  // Ivory Coast 1-0 Ecuador
+  'E_2_h':2,'E_2_a':1,  // Germany 2-1 Ivory Coast
+  'E_3_h':0,'E_3_a':0,  // Ecuador 0-0 Curaçao
+  // Group F – Netherlands(0) Japan(1) Sweden(2) Tunisia(3)
+  'F_0_h':2,'F_0_a':2,  // Netherlands 2-2 Japan
+  'F_1_h':5,'F_1_a':1,  // Sweden 5-1 Tunisia
+  'F_2_h':5,'F_2_a':1,  // Netherlands 5-1 Sweden
+  'F_3_h':0,'F_3_a':4,  // Tunisia 0-4 Japan
+  // Group G – Belgium(0) Egypt(1) Iran(2) New Zealand(3)
+  'G_0_h':1,'G_0_a':1,  // Belgium 1-1 Egypt
+  'G_1_h':2,'G_1_a':2,  // Iran 2-2 New Zealand
+  'G_2_h':0,'G_2_a':0,  // Belgium 0-0 Iran
+  'G_3_h':1,'G_3_a':3,  // New Zealand 1-3 Egypt
+  // Group H – Spain(0) Cape Verde(1) Saudi Arabia(2) Uruguay(3)
+  'H_0_h':0,'H_0_a':0,  // Spain 0-0 Cape Verde
+  'H_1_h':1,'H_1_a':1,  // Saudi Arabia 1-1 Uruguay
+  'H_2_h':4,'H_2_a':0,  // Spain 4-0 Saudi Arabia
+  'H_3_h':2,'H_3_a':2,  // Uruguay 2-2 Cape Verde
+  // Group I – France(0) Senegal(1) Iraq(2) Norway(3)
+  'I_0_h':3,'I_0_a':1,  // France 3-1 Senegal
+  'I_1_h':1,'I_1_a':4,  // Iraq 1-4 Norway
+  'I_2_h':3,'I_2_a':0,  // France 3-0 Iraq
+  'I_3_h':3,'I_3_a':2,  // Norway 3-2 Senegal
+  // Group J – Argentina(0) Algeria(1) Austria(2) Jordan(3)
+  'J_0_h':3,'J_0_a':0,  // Argentina 3-0 Algeria
+  'J_1_h':3,'J_1_a':1,  // Austria 3-1 Jordan
+  'J_2_h':1,'J_2_a':0,  // Argentina 1-0 Austria
+  'J_3_h':0,'J_3_a':2,  // Jordan 0-2 Algeria
+  // Group K – Portugal(0) DR Congo(1) Uzbekistan(2) Colombia(3)
+  'K_0_h':1,'K_0_a':1,  // Portugal 1-1 DR Congo
+  'K_1_h':1,'K_1_a':3,  // Uzbekistan 1-3 Colombia
+  'K_2_h':5,'K_2_a':0,  // Portugal 5-0 Uzbekistan
+  'K_3_h':1,'K_3_a':0,  // Colombia 1-0 DR Congo
+  // Group L – England(0) Croatia(1) Ghana(2) Panama(3)
+  'L_0_h':4,'L_0_a':2,  // England 4-2 Croatia
+  'L_1_h':1,'L_1_a':0,  // Ghana 1-0 Panama
+  'L_2_h':0,'L_2_a':0,  // England 0-0 Ghana
+  'L_3_h':0,'L_3_a':1,  // Panama 0-1 Croatia
+};
 
 // ── STATE ─────────────────────────────────────────────────────
 let state = loadState();
@@ -888,7 +972,20 @@ function loadState() {
     const s = localStorage.getItem('wc2026');
     if (s) return JSON.parse(s);
   } catch(e) {}
-  return { groupScores:{}, koSlots:{}, champion:'', scorers:[] };
+  // No saved state — pre-load real MD1 & MD2 results
+  return { groupScores: { ...INITIAL_SCORES }, koSlots:{}, champion:'', scorers:[] };
+}
+function loadCurrentScores() {
+  // Merge only the keys that aren't already set by the user
+  Object.entries(INITIAL_SCORES).forEach(([k,v]) => {
+    if (state.groupScores[k] === undefined || state.groupScores[k] === '') {
+      state.groupScores[k] = v;
+    }
+  });
+  saveState();
+  buildGroups();
+  buildBracket();
+  updateStats();
 }
 function saveState() {
   try { localStorage.setItem('wc2026', JSON.stringify(state)); } catch(e) {}
@@ -1023,51 +1120,116 @@ const ROUNDS = [
   { id:'f',   label:'Final',          matches:1  },
 ];
 
-// R32 seedings: [homeSource, awaySource] as descriptive labels
+// R32 display labels — matches FIFA official slot map (Match 73–88)
 const R32_LABELS = [
-  ['1A','2C'],['1B','2A'],['1C','2B'],['1D','2F'],
-  ['1E','2D'],['1F','2E'],['1G','2I'],['1H','2J'],
-  ['1I','2G'],['1J','2H'],['1K','2L'],['1L','2K'],
-  ['3rd','3rd'],['3rd','3rd'],['3rd','3rd'],['3rd','3rd'],
+  ['2A','2B'],           // M73
+  ['1E','3A/B/C/D/F'],   // M74
+  ['1F','2C'],           // M75
+  ['1C','2F'],           // M76
+  ['1I','3C/D/F/G/H'],   // M77
+  ['2E','2I'],           // M78
+  ['1A','3C/E/F/H/I'],   // M79
+  ['1L','3E/H/I/J/K'],   // M80
+  ['1D','3B/E/F/I/J'],   // M81
+  ['1G','3A/E/H/I/J'],   // M82
+  ['2K','2L'],           // M83
+  ['1H','2J'],           // M84
+  ['1B','3E/F/G/I/J'],   // M85
+  ['1J','2H'],           // M86
+  ['1K','3D/E/I/J/L'],   // M87
+  ['2D','2G'],           // M88
 ];
 
 // ── Compute all bracket team names automatically ───────────────
 function computeBracketTeams() {
-  const teams = {}; // key "round_match_slot" → team name string
+  const teams = {};
 
   // Pull group standings
   const standings = {};
   GROUPS.forEach(g => { standings[g.id] = computeStandings(g.id); });
   const pos = (gid, p) => standings[gid][p]?.name || '';
 
-  // Best 3rd-place teams (ranked by Pts → GD → GF; all 12 shown by default)
+  // Best 8 3rd-place teams with their group id (for slot eligibility matching)
   function getBest3rds() {
-    const thirds = GROUPS.map(g => standings[g.id][2]).filter(t => t);
+    const thirds = GROUPS.map(g => {
+      const t = standings[g.id][2];
+      return t ? { name: t.name, groupId: g.id, Pts: t.Pts, GD: t.GD, GF: t.GF } : null;
+    }).filter(t => t);
     thirds.sort((a,b) => b.Pts-a.Pts || b.GD-a.GD || b.GF-a.GF);
-    return thirds.slice(0,8).map(t => t.name);
+    return thirds.slice(0, 8);
   }
 
-  // R32 slots from group positions
-  const r32pairs = [
-    [pos('A',0), pos('C',1)],
-    [pos('B',0), pos('A',1)],
-    [pos('C',0), pos('B',1)],
-    [pos('D',0), pos('F',1)],
-    [pos('E',0), pos('D',1)],
-    [pos('F',0), pos('E',1)],
-    [pos('G',0), pos('I',1)],
-    [pos('H',0), pos('J',1)],
-    [pos('I',0), pos('G',1)],
-    [pos('J',0), pos('H',1)],
-    [pos('K',0), pos('L',1)],
-    [pos('L',0), pos('K',1)],
+  // Each 3rd-place slot (by r32pairs index) lists which groups are eligible.
+  // Per the official FIFA 2026 slot map.
+  const THIRD_SLOTS = [
+    [1,  ['A','B','C','D','F']],   // M74
+    [4,  ['C','D','F','G','H']],   // M77
+    [6,  ['C','E','F','H','I']],   // M79
+    [7,  ['E','H','I','J','K']],   // M80
+    [8,  ['B','E','F','I','J']],   // M81
+    [9,  ['A','E','H','I','J']],   // M82
+    [12, ['E','F','G','I','J']],   // M85
+    [14, ['D','E','I','J','L']],   // M87
   ];
 
-  // Fill 3rd-place slots (matches 12–15)
-  const best3 = getBest3rds();
-  for (let i = 0; i < 4; i++) {
-    r32pairs.push([best3[i*2] || '', best3[i*2+1] || '']);
+  // Constraint-aware assignment: re-evaluate at every step (most-constrained slot,
+  // least-constraining team) to avoid stranding groups in slots they can't fill.
+  function assign3rds(best3, slotDefs) {
+    const result = {};
+    const available = [...best3];
+    const remaining = [...slotDefs];
+
+    while (remaining.length > 0) {
+      // Re-sort each pass so we always tackle the most constrained slot first
+      remaining.sort((a, b) => {
+        const ca = available.filter(t => a[1].includes(t.groupId)).length;
+        const cb = available.filter(t => b[1].includes(t.groupId)).length;
+        return ca - cb;
+      });
+      const [idx, eligible] = remaining.shift();
+
+      // Among eligible teams, pick the one that leaves the most options open (LCV)
+      let bestTeam = null, bestOtherCount = -1;
+      for (const team of available) {
+        if (!eligible.includes(team.groupId)) continue;
+        const otherCount = remaining.filter(([, e]) => e.includes(team.groupId)).length;
+        if (bestTeam === null || otherCount > bestOtherCount) {
+          bestOtherCount = otherCount;
+          bestTeam = team;
+        }
+      }
+      if (bestTeam) {
+        result[idx] = bestTeam.name;
+        available.splice(available.indexOf(bestTeam), 1);
+      } else {
+        result[idx] = '';
+      }
+    }
+    return result;
   }
+
+  const best3 = getBest3rds();
+  const t3 = assign3rds(best3, THIRD_SLOTS);
+
+  // Official FIFA 2026 R32 pairs (Match 73–88)
+  const r32pairs = [
+    [pos('A',1), pos('B',1)],   // M73: 2A vs 2B
+    [pos('E',0), t3[1]||''],    // M74: 1E vs 3A/B/C/D/F
+    [pos('F',0), pos('C',1)],   // M75: 1F vs 2C
+    [pos('C',0), pos('F',1)],   // M76: 1C vs 2F
+    [pos('I',0), t3[4]||''],    // M77: 1I vs 3C/D/F/G/H
+    [pos('E',1), pos('I',1)],   // M78: 2E vs 2I
+    [pos('A',0), t3[6]||''],    // M79: 1A vs 3C/E/F/H/I
+    [pos('L',0), t3[7]||''],    // M80: 1L vs 3E/H/I/J/K
+    [pos('D',0), t3[8]||''],    // M81: 1D vs 3B/E/F/I/J
+    [pos('G',0), t3[9]||''],    // M82: 1G vs 3A/E/H/I/J
+    [pos('K',1), pos('L',1)],   // M83: 2K vs 2L
+    [pos('H',0), pos('J',1)],   // M84: 1H vs 2J
+    [pos('B',0), t3[12]||''],   // M85: 1B vs 3E/F/G/I/J
+    [pos('J',0), pos('H',1)],   // M86: 1J vs 2H
+    [pos('K',0), t3[14]||''],   // M87: 1K vs 3D/E/I/J/L
+    [pos('D',1), pos('G',1)],   // M88: 2D vs 2G
+  ];
 
   r32pairs.forEach(([h,a], mi) => {
     teams[`r32_${mi}_0`] = h;
@@ -1091,7 +1253,7 @@ function computeBracketTeams() {
       if (!isNaN(s0) && !isNaN(s1)) {
         if (s0 > s1 && t0) teams[nextKey] = t0;
         else if (s1 > s0 && t1) teams[nextKey] = t1;
-        // draw: leave blank so user knows it needs resolving
+        // draw: leave blank — user must enter extra time/pen result
       }
     }
   });
@@ -1102,13 +1264,14 @@ function computeBracketTeams() {
 // Seed label for each slot
 function seedLabel(roundId, mi, si) {
   if (roundId === 'r32') {
-    const lbl = R32_LABELS[mi][si]; // e.g. '1A', '2C', '3rd'
-    if (lbl === '3rd') return 'Best 3rd';
-    const pos = lbl[0] === '1' ? '1st' : '2nd';
-    return `${pos} · Group ${lbl[1]}`;
+    const lbl = R32_LABELS[mi][si]; // e.g. '1A', '2C', '3C/E/F/H/I'
+    if (lbl.startsWith('3')) {
+      // 3rd-place slot — show eligible groups
+      return `Best 3rd · ${lbl.substring(1)}`;
+    }
+    const rank = lbl[0] === '1' ? '1st' : '2nd';
+    return `${rank} · Group ${lbl[1]}`;
   }
-  // later rounds: "Winner · Match N"
-  const matchNum = mi * 2 + si + 1;
   const prevRound = { r16:'R32', qf:'R16', sf:'QF', f:'SF' }[roundId] || '';
   return `${prevRound} Winner`;
 }
@@ -1333,8 +1496,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // ── RESET ─────────────────────────────────────────────────────
 function resetAll() {
-  if (!confirm('Reset all scores and results?')) return;
-  state = { groupScores:{}, koSlots:{}, scorers:[] };
+  if (!confirm('Reset all scores and results? MD1–MD3 known results will be re-loaded.')) return;
+  state = { groupScores: { ...INITIAL_SCORES }, koSlots:{}, champion:'', scorers:[] };
   saveState();
   buildGroups();
   buildBracket();
